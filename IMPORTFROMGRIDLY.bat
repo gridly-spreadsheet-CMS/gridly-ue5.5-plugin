@@ -1,0 +1,1 @@
+"C:\Program Files\Epic Games\UE_5.5\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "PATH_TO_YOUR_UPROJECT_FILE" -run=GridlyImportExport -Config="PATH_TO_YOUR_PROJECT\Plugins\Gridly\Config\ImportExport.ini" -Section=Import
