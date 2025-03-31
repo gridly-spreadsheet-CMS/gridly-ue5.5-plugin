@@ -32,7 +32,11 @@ int32 UGridlyImportExportCommandlet::Main(const FString& Params)
 	// Load localization module and its dependencies
 	FModuleManager::Get().LoadModule(TEXT("LocalizationDashboard"));
 
+	ILocalizationServiceModule& LocServiceModule = ILocalizationServiceModule::Get();
+	LocServiceModule.SetProvider("Gridly");
+
 	ILocalizationServiceProvider& LocServProvider = ILocalizationServiceModule::Get().GetProvider();
+
 	const bool bCanUseGridly = LocServProvider.IsEnabled() && LocServProvider.IsAvailable() && LocServProvider.GetName().ToString() == TEXT("Gridly");
 
 	FGridlyLocalizationServiceProvider* GridlyProvider = bCanUseGridly ? static_cast<FGridlyLocalizationServiceProvider*>(&LocServProvider) : nullptr;
