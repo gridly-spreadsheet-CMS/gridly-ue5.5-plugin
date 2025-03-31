@@ -16,6 +16,7 @@
 #include "GridlyDataTable.h"
 #include "Modules/ModuleManager.h"
 #include "AssetToolsModule.h"
+#include "ILocalizationServiceModule.h"
 
 
 
@@ -26,30 +27,35 @@ DEFINE_LOG_CATEGORY(LogGridlyEditor)
 
 void FGridlyEditorModule::StartupModule()
 {
-	// Register localizations service
-
-	IModularFeatures::Get().RegisterModularFeature("LocalizationService", &GridlyLocalizationServiceProvider);
-
-	// Register button/menu item
-
+	// Style and commands
 	FGridlyStyle::Initialize();
 	FGridlyStyle::ReloadTextures();
 	FGridlyCommands::Register();
+
 	PluginCommands = MakeShareable(new FUICommandList);
 	PluginCommands->MapAction(FGridlyCommands::Get().PluginAction,
 		FExecuteAction::CreateStatic(&FGridlyCommands::LaunchBrowser), FCanExecuteAction());
+
 	UToolMenus::RegisterStartupCallback(FSimpleMulticastDelegate::FDelegate::CreateRaw(this, &FGridlyEditorModule::RegisterMenus));
 
-	// Register asset types
-
+	// Asset types
 	IAssetTools& AssetTools = FModuleManager::GetModuleChecked<FAssetToolsModule>("AssetTools").Get();
-	AssetTools.RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_GridlyDataTable));
+	AssetTools.RegisterAssetTypeActions(MakeShareable(new FAssetTypeActions_GridlyDataTable()));
+
+	// ✅ Register Gridly as modular feature so it's known to the system
+	IModularFeatures::Get().RegisterModularFeature(TEXT("LocalizationService"), &GridlyLocalizationServiceProvider);
+	FModuleManager::LoadModuleChecked<ILocalizationServiceModule>("LocalizationService").SetProvider(TEXT("Gridly"));
 
 
-
-
-
+	// ✅ Set as the current provider
+	if (FModuleManager::Get().IsModuleLoaded("LocalizationService"))
+	{
+		ILocalizationServiceModule& LocServiceModule = FModuleManager::LoadModuleChecked<ILocalizationServiceModule>("LocalizationService");
+		LocServiceModule.SetProvider(TEXT("Gridly"));
+	}
 }
+
+
 
 void FGridlyEditorModule::ShutdownModule()
 {

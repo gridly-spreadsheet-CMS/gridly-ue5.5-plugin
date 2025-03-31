@@ -29,6 +29,8 @@ class FGridlyLocalizationServiceProvider final : public ILocalizationServiceProv
 	};
 public:
 	FGridlyLocalizationServiceProvider();
+	bool bHasDeletesPending = false;
+	bool HasDeleteRequestsPending() const;
 
 public:
 	/* ILocalizationServiceProvider implementation */

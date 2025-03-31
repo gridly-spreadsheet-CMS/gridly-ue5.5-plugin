@@ -658,6 +658,7 @@ FHttpRequestCompleteDelegate FGridlyLocalizationServiceProvider::CreateExportNat
 
 void FGridlyLocalizationServiceProvider::FetchGridlyCSV()
 {
+	bHasDeletesPending = true;
 	const UGridlyGameSettings* GameSettings = GetMutableDefault<UGridlyGameSettings>();
 	const FString ApiKey = GameSettings->ExportApiKey;
 	const FString ViewId = GameSettings->ExportViewId;
@@ -680,6 +681,7 @@ void FGridlyLocalizationServiceProvider::FetchGridlyCSV()
 
 	// Send the request
 	HttpRequest->ProcessRequest();
+
 }
 
 void FGridlyLocalizationServiceProvider::OnGridlyCSVResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
@@ -953,9 +955,11 @@ void FGridlyLocalizationServiceProvider::DeleteRecordsFromGridly(const TArray<FS
 
 	if (RecordsToDelete.Num() == 0)
 	{
+		bHasDeletesPending = false;
 		UE_LOG(LogGridlyLocalizationServiceProvider, Warning, TEXT("No records to delete."));
 		return;
 	}
+	bHasDeletesPending = true;
 	// Initialize the counters
 	CompletedBatches = 0;  // Reset the counter for completed batches
 	TotalBatchesToProcess = FMath::CeilToInt(static_cast<float>(RecordsToDelete.Num()) / MaxRecordsPerRequest);
@@ -966,6 +970,7 @@ void FGridlyLocalizationServiceProvider::DeleteRecordsFromGridly(const TArray<FS
 	int32 TotalBatches = FMath::CeilToInt(static_cast<float>(TotalRecords) / MaxRecordsPerRequest);
 	CompletedBatches = 0;  // Initialize the completed batch counter
 	TotalBatchesToProcess = TotalBatches;  // Track the total number of batches
+
 
 	for (int32 BatchIndex = 0; BatchIndex < TotalBatches; BatchIndex++)
 	{
@@ -1043,13 +1048,21 @@ void FGridlyLocalizationServiceProvider::OnDeleteRecordsResponse(FHttpRequestPtr
 		UE_LOG(LogGridlyLocalizationServiceProvider, Log, TEXT("Successfully deleted records."));
 
 		// Only show the success message when all batches are done
-		if (CompletedBatches == TotalBatchesToProcess && !IsRunningCommandlet())
+		if (CompletedBatches == TotalBatchesToProcess)
 		{
-			// Prepare and show a success message dialog
-			FString Message = FString::Printf(TEXT("Number of entries deleted: %llu"), ExportForTargetEntriesDeleted);
+			bHasDeletesPending = false;
 
-			UE_LOG(LogGridlyEditor, Log, TEXT("%s"), *Message);
-			FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(Message));
+			if (!IsRunningCommandlet())
+			{
+				// Show dialog only in editor mode
+				FString Message = FString::Printf(TEXT("Number of entries deleted: %llu"), ExportForTargetEntriesDeleted);
+				UE_LOG(LogGridlyEditor, Log, TEXT("%s"), *Message);
+				FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(Message));
+			}
+			else
+			{
+				UE_LOG(LogGridlyLocalizationServiceProvider, Log, TEXT("Commandlet: Deleted %llu records from Gridly."), ExportForTargetEntriesDeleted);
+			}
 		}
 	}
 	else
@@ -1071,6 +1084,10 @@ void FGridlyLocalizationServiceProvider::OnDeleteRecordsResponse(FHttpRequestPtr
 	}
 }
 
+bool FGridlyLocalizationServiceProvider::HasDeleteRequestsPending() const
+{
+	return bHasDeletesPending;
+}
 
 
 FString FGridlyLocalizationServiceProvider::RemoveNamespaceFromKey(FString& InputString)

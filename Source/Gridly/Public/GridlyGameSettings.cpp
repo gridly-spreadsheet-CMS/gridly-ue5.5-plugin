@@ -7,6 +7,7 @@
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
 
+
 UGridlyGameSettings::UGridlyGameSettings(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer),
     CustomCultureMapping({
@@ -163,6 +164,7 @@ UGridlyGameSettings::UGridlyGameSettings(const FObjectInitializer& ObjectInitial
         {"zu-ZA", "zuZA"}
         })
 {
+
 #if WITH_EDITOR
     FString GridlyConfigPath = GetGridlyConfigPath();
 
@@ -303,9 +305,9 @@ bool UGridlyGameSettings::DeserializeJsonToArray(const FString& JsonString, TArr
 FString UGridlyGameSettings::GetGridlyConfigPath()
 {
     FString Path = FPaths::ConvertRelativePathToFull(FPaths::ProjectConfigDir()) / TEXT("GridlyConfig.ini");
-    FConfigCacheIni::NormalizeConfigIniPath(Path); // Normalize it!
     return Path;
 }
+
 
 void UGridlyGameSettings::EnsureConfigFileExists(const FString& ConfigPath)
 {

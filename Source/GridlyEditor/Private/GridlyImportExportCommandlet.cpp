@@ -14,6 +14,7 @@
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Package.h"
 #include "UObject/Class.h"
+#include <GridlyGameSettings.h>
 
 DEFINE_LOG_CATEGORY_STATIC(LogGridlyImportExportCommandlet, Log, All);
 
@@ -50,13 +51,14 @@ int32 UGridlyImportExportCommandlet::Main(const FString& Params)
 	FString ConfigPath;
 	if (const FString* ConfigParamVal = ParamVals.Find(FString(TEXT("Config"))))
 	{
-		ConfigPath = *ConfigParamVal;
+		ConfigPath = FConfigCacheIni::NormalizeConfigIniPath(*ConfigParamVal);
 	}
 	else
 	{
 		UE_LOG(LogGridlyImportExportCommandlet, Error, TEXT("No config specified."));
 		return -1;
 	}
+
 	// Reading ExportAllGameTarget argument
 	FString* ExportAllGameTargetPtr = ParamVals.Find(FString(TEXT("ExportAllGameTarget")));
 
@@ -117,6 +119,7 @@ int32 UGridlyImportExportCommandlet::Main(const FString& Params)
 					FString Path = FPaths::ProjectSavedDir() / "Temp" / "Game" / LocTarget->Settings.Name / CultureName /
 						LocTarget->Settings.Name + ".po";
 					FPaths::MakePathRelativeTo(Path, *FPaths::ProjectDir());
+					FString NormalizedPath = FPaths::ConvertRelativePathToFull(Path);
 					DownloadTargetFileOp->SetInRelativeOutputFilePathAndName(Path);
 
 					auto OperationCompleteDelegate = FLocalizationServiceOperationComplete::CreateUObject(this,
@@ -149,13 +152,18 @@ int32 UGridlyImportExportCommandlet::Main(const FString& Params)
 					TArray<LocalizationCommandletExecution::FTask> Tasks;
 					const bool ShouldUseProjectFile = !Target->IsMemberOfEngineTargetSet();
 
-					const FString ImportScriptPath = LocalizationConfigurationScript::GetImportTextConfigPath(Target, TOptional<FString>());
+					// Normalize Import config path
+					FString ImportScriptPath = LocalizationConfigurationScript::GetImportTextConfigPath(Target, TOptional<FString>());
+					ImportScriptPath = FConfigCacheIni::NormalizeConfigIniPath(ImportScriptPath);
 					LocalizationConfigurationScript::GenerateImportTextConfigFile(Target, TOptional<FString>(), DownloadBasePath).WriteWithSCC(ImportScriptPath);
 					Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("ImportTaskName", "Import Translations"), ImportScriptPath, ShouldUseProjectFile));
 
-					const FString ReportScriptPath = LocalizationConfigurationScript::GetWordCountReportConfigPath(Target);
+					// Normalize Report config path
+					FString ReportScriptPath = LocalizationConfigurationScript::GetWordCountReportConfigPath(Target);
+					ReportScriptPath = FConfigCacheIni::NormalizeConfigIniPath(ReportScriptPath);
 					LocalizationConfigurationScript::GenerateWordCountReportConfigFile(Target).WriteWithSCC(ReportScriptPath);
 					Tasks.Add(LocalizationCommandletExecution::FTask(LOCTEXT("ReportTaskName", "Generate Reports"), ReportScriptPath, ShouldUseProjectFile));
+
 
 					// Function will block until all tasks have been run
 					BlockingRunLocCommandletTask(Tasks);
@@ -168,17 +176,56 @@ int32 UGridlyImportExportCommandlet::Main(const FString& Params)
 
 			if (bDoExport)
 			{
+				UE_LOG(LogGridlyImportExportCommandlet, Log, TEXT("Running gather text task before exporting to Gridly."));
+				// Generate gather config file
+				FString GatherScriptPath = LocalizationConfigurationScript::GetGatherTextConfigPath(LocTarget);
+				GatherScriptPath = FConfigCacheIni::NormalizeConfigIniPath(GatherScriptPath);
+
+				LocalizationConfigurationScript::GenerateGatherTextConfigFile(LocTarget).WriteWithSCC(GatherScriptPath);
+
+				const bool bUseProjectFile = !LocTarget->IsMemberOfEngineTargetSet();
+
+				LocalizationCommandletExecution::FTask GatherTask(
+					LOCTEXT("GatherTaskName", "Gather Text"),
+					GatherScriptPath,
+					bUseProjectFile
+				);
+
+				// Run Gather before Export
+				BlockingRunLocCommandletTask({ GatherTask });
+
 				FHttpRequestCompleteDelegate ReqDelegate = GridlyProvider->CreateExportNativeCultureDelegate();
 				const FText SlowTaskText = LOCTEXT("ExportNativeCultureForTargetToGridlyText", "Exporting native culture for target to Gridly");
 
 				GridlyProvider->ExportForTargetToGridly(LocTarget, ReqDelegate, SlowTaskText);
 
-				// Wait for Http requests
+				// Wait for export requests to complete
 				while (GridlyProvider->HasRequestsPending())
 				{
 					FPlatformProcess::Sleep(0.4f);
 					FHttpModule::Get().GetHttpManager().Tick(-1.f);
 				}
+
+				const UGridlyGameSettings* GameSettings = GetMutableDefault<UGridlyGameSettings>();
+				if (GameSettings && GameSettings->bSyncRecords)
+				{
+					UE_LOG(LogGridlyImportExportCommandlet, Warning, TEXT("Fetching Gridly CSV to check for stale records to delete..."));
+					UE_LOG(LogGridlyImportExportCommandlet, Warning, TEXT("First check: HasDeleteRequestsPending = %s"),
+						GridlyProvider->HasDeleteRequestsPending() ? TEXT("true") : TEXT("false"));
+					GridlyProvider->FetchGridlyCSV();
+					UE_LOG(LogGridlyImportExportCommandlet, Warning, TEXT("Second check: HasDeleteRequestsPending = %s"),
+						GridlyProvider->HasDeleteRequestsPending() ? TEXT("true") : TEXT("false"));
+
+					// Wait for delete requests to finish
+					while (GridlyProvider->HasDeleteRequestsPending())
+					{
+						FPlatformProcess::Sleep(0.4f);
+						FHttpModule::Get().GetHttpManager().Tick(-1.f);
+					}
+					UE_LOG(LogGridlyImportExportCommandlet, Warning, TEXT("All record deletions completed."));
+
+				}
+
 			}
 		}
 
