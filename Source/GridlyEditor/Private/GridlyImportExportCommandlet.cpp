@@ -212,9 +212,11 @@ int32 UGridlyImportExportCommandlet::Main(const FString& Params)
 					UE_LOG(LogGridlyImportExportCommandlet, Warning, TEXT("Fetching Gridly CSV to check for stale records to delete..."));
 					UE_LOG(LogGridlyImportExportCommandlet, Warning, TEXT("First check: HasDeleteRequestsPending = %s"),
 						GridlyProvider->HasDeleteRequestsPending() ? TEXT("true") : TEXT("false"));
+					/*
 					GridlyProvider->FetchGridlyCSV();
 					UE_LOG(LogGridlyImportExportCommandlet, Warning, TEXT("Second check: HasDeleteRequestsPending = %s"),
 						GridlyProvider->HasDeleteRequestsPending() ? TEXT("true") : TEXT("false"));
+						*/
 
 					// Wait for delete requests to finish
 					while (GridlyProvider->HasDeleteRequestsPending())

@@ -658,7 +658,9 @@ FHttpRequestCompleteDelegate FGridlyLocalizationServiceProvider::CreateExportNat
 
 void FGridlyLocalizationServiceProvider::FetchGridlyCSV()
 {
+	// Set the flag to true at the beginning of the process
 	bHasDeletesPending = true;
+	
 	const UGridlyGameSettings* GameSettings = GetMutableDefault<UGridlyGameSettings>();
 	const FString ApiKey = GameSettings->ExportApiKey;
 	const FString ViewId = GameSettings->ExportViewId;
@@ -681,7 +683,6 @@ void FGridlyLocalizationServiceProvider::FetchGridlyCSV()
 
 	// Send the request
 	HttpRequest->ProcessRequest();
-
 }
 
 void FGridlyLocalizationServiceProvider::OnGridlyCSVResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
@@ -689,6 +690,7 @@ void FGridlyLocalizationServiceProvider::OnGridlyCSVResponseReceived(FHttpReques
 	if (!bWasSuccessful || !Response.IsValid())
 	{
 		UE_LOG(LogTemp, Error, TEXT("Failed to fetch Gridly CSV"));
+		bHasDeletesPending = false; // Reset flag on failure
 		return;
 	}
 
@@ -699,9 +701,10 @@ void FGridlyLocalizationServiceProvider::OnGridlyCSVResponseReceived(FHttpReques
 	ParseCSVAndCreateRecords(CSVContent);
 }
 
-
 void FGridlyLocalizationServiceProvider::ParseCSVAndCreateRecords(const FString& CSVContent)
 {
+	// Don't reset the flag here, it will be reset in DeleteRecordsFromGridly if there are no records to delete
+	
 	const TCHAR QuoteChar = TEXT('"');
 	const TCHAR Delimiter = TEXT(',');
 
@@ -792,6 +795,7 @@ void FGridlyLocalizationServiceProvider::ParseCSVAndCreateRecords(const FString&
 	if (RecordIdColumnIndex == -1 || PathColumnIndex == -1)
 	{
 		UE_LOG(LogTemp, Error, TEXT("Failed to identify Record ID or Path columns in CSV."));
+		bHasDeletesPending = false; // Reset flag if we can't identify the columns
 		return;
 	}
 
@@ -915,8 +919,8 @@ void FGridlyLocalizationServiceProvider::ParseCSVAndCreateRecords(const FString&
 			}
 		}
 
-		// Only handle deletion if the path was found, but the ID was not found for that path
-		if (PathFoundInUE && !RecordIdFoundInUE)
+		// Only handle deletion if the path was found, but the ID was not found for that path or path not found in UE
+		if ((PathFoundInUE && !RecordIdFoundInUE ) || !PathFoundInUE)
 		{
 			UE_LOG(LogGridlyLocalizationServiceProvider, Log, TEXT("No match found for GridlyRecord: ID = %s, Path = %s. Adding to delete list."), *GridlyRecord.Id, *GridlyRecord.Path);
 
@@ -946,12 +950,21 @@ void FGridlyLocalizationServiceProvider::ParseCSVAndCreateRecords(const FString&
 
 
 	// Optionally, pass this list for further processing
-	DeleteRecordsFromGridly(RecordsToDelete);
+	if (RecordsToDelete.Num() > 0)
+	{
+		DeleteRecordsFromGridly(RecordsToDelete);
+	}
+	else
+	{
+		UE_LOG(LogGridlyLocalizationServiceProvider, Log, TEXT("No records to delete."));
+		bHasDeletesPending = false; // Reset flag if there are no records to delete
+	}
 }
 
 void FGridlyLocalizationServiceProvider::DeleteRecordsFromGridly(const TArray<FString>& RecordsToDelete)
 {
 	const int32 MaxRecordsPerRequest = 1000;  // Maximum number of records per batch
+	UE_LOG(LogGridlyLocalizationServiceProvider, Warning, TEXT("DeleteRecordsFromGridly CALLED"));
 
 	if (RecordsToDelete.Num() == 0)
 	{
@@ -983,7 +996,14 @@ void FGridlyLocalizationServiceProvider::DeleteRecordsFromGridly(const TArray<FS
 		// Manually append the batch records
 		for (int32 i = StartIndex; i < EndIndex; ++i)
 		{
-			BatchRecords.Add(RecordsToDelete[i]);
+			// Clean up the record ID to prevent duplication
+			FString CleanRecordId = RecordsToDelete[i];
+			// Remove any duplicate commas and spaces
+			CleanRecordId = CleanRecordId.Replace(TEXT(",,"), TEXT(","));
+			CleanRecordId = CleanRecordId.Replace(TEXT(" ,"), TEXT(","));
+			CleanRecordId = CleanRecordId.Replace(TEXT(", "), TEXT(","));
+			
+			BatchRecords.Add(CleanRecordId);
 		}
 
 		// Convert the batch to JSON and send the request
@@ -1037,6 +1057,7 @@ void FGridlyLocalizationServiceProvider::OnDeleteRecordsResponse(FHttpRequestPtr
 	{
 		UE_LOG(LogGridlyLocalizationServiceProvider, Error, TEXT("Invalid HTTP request or response."));
 		FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(TEXT("Invalid HTTP request or response.")));
+		bHasDeletesPending = false;  // Reset flag on invalid request/response
 		return;
 	}
 
@@ -1073,13 +1094,18 @@ void FGridlyLocalizationServiceProvider::OnDeleteRecordsResponse(FHttpRequestPtr
 
 		UE_LOG(LogGridlyLocalizationServiceProvider, Error, TEXT("%s"), *ErrorMessage);
 
-		// Display a failure message dialog when all batches are done
-		if (CompletedBatches == TotalBatchesToProcess && !IsRunningCommandlet())
+		// Reset the flag when all batches are done, regardless of success or failure
+		if (CompletedBatches == TotalBatchesToProcess)
 		{
-			FString DialogMessage = FString::Printf(TEXT("Error during record deletion.\nHTTP Code: %d\nResponse: %s"),
-				Response->GetResponseCode(), *Response->GetContentAsString());
+			bHasDeletesPending = false;
+			
+			if (!IsRunningCommandlet())
+			{
+				FString DialogMessage = FString::Printf(TEXT("Error during record deletion.\nHTTP Code: %d\nResponse: %s"),
+					Response->GetResponseCode(), *Response->GetContentAsString());
 
-			FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(DialogMessage));
+				FMessageDialog::Open(EAppMsgType::Ok, FText::FromString(DialogMessage));
+			}
 		}
 	}
 }
