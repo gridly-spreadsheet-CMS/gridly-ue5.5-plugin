@@ -704,6 +704,7 @@ void FGridlyLocalizationServiceProvider::OnGridlyCSVResponseReceived(FHttpReques
 void FGridlyLocalizationServiceProvider::ParseCSVAndCreateRecords(const FString& CSVContent)
 {
 	// Don't reset the flag here, it will be reset in DeleteRecordsFromGridly if there are no records to delete
+	const UGridlyGameSettings* GameSettings = GetMutableDefault<UGridlyGameSettings>();
 	
 	const TCHAR QuoteChar = TEXT('"');
 	const TCHAR Delimiter = TEXT(',');
@@ -924,8 +925,8 @@ void FGridlyLocalizationServiceProvider::ParseCSVAndCreateRecords(const FString&
 		{
 			UE_LOG(LogGridlyLocalizationServiceProvider, Log, TEXT("No match found for GridlyRecord: ID = %s, Path = %s. Adding to delete list."), *GridlyRecord.Id, *GridlyRecord.Path);
 
-			// If the path is empty, we only add the record ID
-			if (GridlyRecord.Path.Len() == 0)
+			// If the path is empty or used combine namespace and ID is false, we only add the record ID
+			if (GridlyRecord.Path.Len() == 0 || !GameSettings->bUseCombinedNamespaceId)
 			{
 				RecordsToDelete.Add(GridlyRecord.Id);
 			}
