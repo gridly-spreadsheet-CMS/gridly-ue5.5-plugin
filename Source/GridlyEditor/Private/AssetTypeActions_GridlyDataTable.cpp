@@ -32,7 +32,7 @@ public:
 	FGridlyDataTableCommands() :
 		TCommands<FGridlyDataTableCommands>("GridlyDataTableEditor",
 			NSLOCTEXT("Gridly", "GridlyDataTableEditor", "Gridly Data Table Editor"), NAME_None,
-			FEditorStyle::GetStyleSetName())
+			FAppStyle::GetAppStyleSetName())
 	{
 	}
 
@@ -133,7 +133,7 @@ void FAssetTypeActions_GridlyDataTable::OpenAssetEditor(const TArray<UObject*>& 
 		DataTablesListText.Indent();
 		for (UDataTable* Table : InvalidDataTables)
 		{
-			const FName ResolvedRowStructName = Table->GetRowStructName();
+			const FName ResolvedRowStructName = Table->GetRowStructPathName().GetAssetName();
 			DataTablesListText.AppendLineFormat(LOCTEXT("DataTable_MissingRowStructListEntry", "* {0} (Row Structure: {1})"),
 				FText::FromString(Table->GetName()), FText::FromName(ResolvedRowStructName));
 		}
@@ -142,10 +142,11 @@ void FAssetTypeActions_GridlyDataTable::OpenAssetEditor(const TArray<UObject*>& 
 		const EAppReturnType::Type DlgResult = FMessageDialog::Open(
 			EAppMsgType::YesNoCancel,
 			FText::Format(LOCTEXT("DataTable_MissingRowStructMsg",
-					"The following Data Tables are missing their row structure and will not be editable.\n\n{0}\n\nDo you want to open these data tables?"),
+				"The following Data Tables are missing their row structure and will not be editable.\n\n{0}\n\nDo you want to open these data tables?"),
 				DataTablesListText.ToText()),
-			&Title
-			);
+			Title // Pass by value, not by pointer
+		);
+
 
 		switch (DlgResult)
 		{
