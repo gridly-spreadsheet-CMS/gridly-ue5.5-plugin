@@ -86,7 +86,6 @@ After you're done translating, you can import translations for all target cultur
 ![Import from Gridly](Documentation/ImportGridly.png)
 
 ### Downloading Source Changes
-Adding change here example.
 The **Download Source Changes** feature allows you to pull source string modifications from Gridly into Unreal Engine 5. This feature downloads source strings from Gridly per namespace, generates CSV files for each string table, and **automatically imports them into UE5's localization manifests**.
  **Important**: This feature modifies source strings in your localization files. Review all changes before committing to version control.
 ### Creating New String Tables from Gridly
