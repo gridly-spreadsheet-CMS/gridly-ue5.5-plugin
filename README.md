@@ -1,4 +1,4 @@
-# Gridly for UE5.5
+# Gridly Plugin for Unreal Engine (UE) 5.5
 
 [Gridly is a localization platform](https://www.gridly.com/) that combines CMS, TMS, and CAT capabilities in a single workspace, enabling teams to manage content, translations, and related tasks efficiently.
 
