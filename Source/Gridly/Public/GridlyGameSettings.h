@@ -105,6 +105,10 @@ public:
     UPROPERTY(Category = "Gridly|Options", BlueprintReadOnly, EditAnywhere, Config)
     bool bSyncRecords = true;
 
+    /** Path where new string tables will be saved when downloading source changes from Gridly */
+    UPROPERTY(Category = "Gridly|Options", BlueprintReadOnly, EditAnywhere, Config, meta = (ContentDir))
+    FString StringTableSavePath = "/Game/Localization/StringTables";
+
     /** This will remap metadata to specific Gridly columns during the export */
     UPROPERTY(Category = "Gridly|Options", BlueprintReadOnly, EditAnywhere, Config, meta = (EditCondition = "bExportMetadata"))
     TMap<FString, FGridlyColumnInfo> MetadataMapping;

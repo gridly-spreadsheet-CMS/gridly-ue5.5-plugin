@@ -1,8 +1,6 @@
 # Gridly for UE5.5
 
-Gridly is the #1 spreadsheet for multi-language content. Bring your digital assets together and localize at speed!
-
-Manage your game’s data as a single source of truth and roll out continuous updates with full localization support & version control.
+[Gridly is a localization platform](https://www.gridly.com/) that combines CMS, TMS, and CAT capabilities in a single workspace, enabling teams to manage content, translations, and related tasks efficiently.
 
 ## Prerequisites
 
@@ -12,9 +10,6 @@ Manage your game’s data as a single source of truth and roll out continuous up
 
 Before you use Gridly, you will need to sign up for an account at https://www.gridly.com
 
-Download the Gridly plugin itself, as well as the sample project to get you started:
-
-- [Gridly UE.4 Plugin](https://github.com/gridly-spreadsheet-CMS/Gridly-UE54-Plugin)
 
 The sample project is optional, but provides a working example project for reference that has a very basic user interface set up for localization in UE5.5.
 
@@ -89,6 +84,29 @@ You can use the Sync records setting in the plugin settings to delete the record
 After you're done translating, you can import translations for all target cultures back to project with just a single click.
 
 ![Import from Gridly](Documentation/ImportGridly.png)
+
+### Downloading Source Changes
+Adding change here example.
+The **Download Source Changes** feature allows you to pull source string modifications from Gridly into Unreal Engine 5. This feature downloads source strings from Gridly per namespace, generates CSV files for each string table, and **automatically imports them into UE5's localization manifests**.
+ **Important**: This feature modifies source strings in your localization files. Review all changes before committing to version control.
+### Creating New String Tables from Gridly
+The **Download Source Changes** feature also supports creating new string tables directly from Gridly data. To create a new string table:
+1. **Set path for the new string tables**: You have to set a path in the plugin settings where the new string tables will be saved.
+2. **Enable Combined Namespace ID**: This feature only works when the "Use Combined Namespace Id" setting is enabled in the plugin settings.
+3. **Create a Path in Gridly**: Create a new path in your Grid. The path name will become the string table name in UE5.
+4. **Set Record ID Format**: Use the format `"StringTableName,Key"` for your record IDs, where:
+   - `StringTableName` is the desired name of your string table (must match the path name)
+   - `Key` is the unique identifier for the text entry
+   - Example: `"B_table,button_text"` or `"MainMenu,start_button"`
+5. **Organize Records**: Place all records that should belong to the same string table under the same path in Gridly.
+6. **Download Changes**: Use the "Download Source Changes" feature to automatically create the string table and import the entries.
+7. **Gather Text**: Use the Gather Text feature in the localization dashboard to gather content in the localization dashboard.
+**Example Setup**:
+- Gridly Path: `B_table`
+- Record IDs: `"B_table,button_text"`, `"B_table,title_text"`, `"B_table,description"`
+- Result: Creates a string table named `B_table` with the specified entries
+ **Note**: The string table name in UE5 will match exactly with your Gridly path name (no "StringTable_" prefix is added).
+
 
 ### Exporting Translations
 

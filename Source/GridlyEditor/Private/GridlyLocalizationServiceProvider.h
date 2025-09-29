@@ -27,6 +27,18 @@ class FGridlyLocalizationServiceProvider final : public ILocalizationServiceProv
 			: Id(InId), Path(InPath)
 		{}
 	};
+
+	class FGridlySourceRecord
+	{
+	public:
+		FString RecordId;
+		FString Path;
+		FString SourceText;
+
+		FGridlySourceRecord()
+			: RecordId(TEXT("")), Path(TEXT("")), SourceText(TEXT(""))
+		{}
+	};
 public:
 	FGridlyLocalizationServiceProvider();
 	bool bHasDeletesPending = false;
@@ -107,12 +119,33 @@ private:
 	void ExportTranslationsForTargetToGridly(TWeakObjectPtr<ULocalizationTarget> LocalizationTarget, bool bIsTargetSet);
 	void OnExportTranslationsForTargetToGridly(FHttpRequestPtr HttpRequestPtr, FHttpResponsePtr HttpResponsePtr, bool bSuccess);
 
+	// Download source changes
+	void DownloadSourceChangesFromGridly(TWeakObjectPtr<ULocalizationTarget> LocalizationTarget, bool bIsTargetSet);
+	void OnDownloadSourceChangesFromGridly(FHttpRequestPtr HttpRequestPtr, FHttpResponsePtr HttpResponsePtr, bool bSuccess);
+
 	TArray<FGridlyTypeRecord> GridlyRecords; // List to store the records from Gridly
 	TArray<FGridlyTypeRecord> UERecords;
 	FString RemoveNamespaceFromKey(FString& InputString);
 	
 	void DeleteRecordsFromGridly(const TArray<FString>& RecordsToDelete);
 	void OnDeleteRecordsResponse(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful);
+
+	// Source changes download tracking
+	TWeakObjectPtr<ULocalizationTarget> CurrentSourceDownloadTarget;
+	FString CurrentSourceDownloadCulture;
+	void DownloadSourceChangesFromGridlyInternal(TWeakObjectPtr<ULocalizationTarget> LocalizationTarget, const FString& NativeCulture);
+	void ProcessSourceChangesForNamespaces(const TMap<FString, TArray<FGridlySourceRecord>>& NamespaceRecords);
+	bool ImportCSVToStringTable(ULocalizationTarget* LocalizationTarget, const FString& Namespace, const FString& CSVFilePath);
+	void ParseCSVLine(const FString& Line, TArray<FString>& OutFields);
+	
+	// Manifest handling functions
+	bool ImportKeyValuePairsToStringTable(ULocalizationTarget* LocalizationTarget, const FString& Namespace, const TMap<FString, FString>& KeyValuePairs);
+
+	
+	// String table helper functions
+	UStringTable* FindOrCreateStringTable(const FString& Namespace);
+	
+
 
 	int32 CompletedBatches;         // Track the number of completed batches
 	int32 TotalBatchesToProcess;    // Track the total number of batches
